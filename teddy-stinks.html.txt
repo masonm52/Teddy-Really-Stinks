@@ -1,0 +1,210 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Teddy Stinks</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #70c5ce;
+    }
+    canvas {
+        display: block;
+        margin: auto;
+        background: linear-gradient(#87ceeb, #d0f4f7);
+    }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let gameStarted = false;
+let gameOver = false;
+let score = 0;
+let gravity = 0.4;
+let jump = -8;
+let level = 1;
+
+// Teddy (player)
+let teddy = {
+    x: 100,
+    y: canvas.height/2,
+    width: 40,
+    height: 40,
+    velocity: 0,
+    color: "#ffcc00"
+};
+
+// Pipes
+let pipes = [];
+let pipeWidth = 60;
+let pipeGap = 200;
+let pipeSpeed = 3;
+
+// Chewable items
+let snacks = [];
+
+function resetGame() {
+    teddy.y = canvas.height/2;
+    teddy.velocity = 0;
+    score = 0;
+    pipes = [];
+    snacks = [];
+    gameOver = false;
+}
+
+function spawnPipe() {
+    let topHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
+    pipes.push({
+        x: canvas.width,
+        top: topHeight,
+        bottom: topHeight + pipeGap
+    });
+}
+
+function spawnSnack() {
+    snacks.push({
+        x: canvas.width,
+        y: Math.random() * (canvas.height - 50) + 25,
+        radius: 15,
+        color: "#ff69b4"
+    });
+}
+
+function update() {
+    if (!gameStarted || gameOver) return;
+
+    teddy.velocity += gravity;
+    teddy.y += teddy.velocity;
+
+    // Spawn pipes
+    if (pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 300) {
+        spawnPipe();
+    }
+
+    // Spawn snacks
+    if (snacks.length === 0 || snacks[snacks.length-1].x < canvas.width - 500) {
+        spawnSnack();
+    }
+
+    // Move pipes
+    for (let i = 0; i < pipes.length; i++) {
+        pipes[i].x -= pipeSpeed;
+    }
+    // Remove offscreen pipes
+    pipes = pipes.filter(p => p.x + pipeWidth > 0);
+
+    // Move snacks
+    for (let i = 0; i < snacks.length; i++) {
+        snacks[i].x -= pipeSpeed;
+    }
+    snacks = snacks.filter(s => s.x + s.radius > 0);
+
+    // Collision with pipes
+    for (let p of pipes) {
+        if (teddy.x < p.x + pipeWidth && teddy.x + teddy.width > p.x &&
+            (teddy.y < p.top || teddy.y + teddy.height > p.bottom)) {
+            gameOver = true;
+        }
+    }
+
+    // Collision with ground/ceiling
+    if (teddy.y + teddy.height > canvas.height || teddy.y < 0) {
+        gameOver = true;
+    }
+
+    // Collision with snacks
+    for (let i = snacks.length - 1; i >= 0; i--) {
+        let s = snacks[i];
+        let dx = teddy.x + teddy.width/2 - s.x;
+        let dy = teddy.y + teddy.height/2 - s.y;
+        let distance = Math.sqrt(dx*dx + dy*dy);
+        if (distance < teddy.width/2 + s.radius) {
+            score += 5; // Chewing a snack gives bonus points
+            snacks.splice(i, 1);
+        }
+    }
+
+    // Score increase for passing pipes
+    for (let p of pipes) {
+        if (p.x + pipeWidth === teddy.x) {
+            score++;
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Title
+    if (!gameStarted) {
+        ctx.fillStyle = "#222";
+        ctx.font = "bold 48px Arial";
+        ctx.fillText("Teddy Stinks", canvas.width/2 - 150, canvas.height/2 - 50);
+        ctx.font = "24px Arial";
+        ctx.fillText("Tap to Start", canvas.width/2 - 70, canvas.height/2);
+    }
+
+    // Teddy
+    ctx.fillStyle = teddy.color;
+    ctx.fillRect(teddy.x, teddy.y, teddy.width, teddy.height);
+
+    // Pipes
+    ctx.fillStyle = "green";
+    for (let p of pipes) {
+        ctx.fillRect(p.x, 0, pipeWidth, p.top);
+        ctx.fillRect(p.x, p.bottom, pipeWidth, canvas.height - p.bottom);
+    }
+
+    // Snacks
+    for (let s of snacks) {
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    // Score
+    ctx.fillStyle = "#000";
+    ctx.font = "24px Arial";
+    ctx.fillText("Score: " + score, 20, 40);
+
+    // Game over
+    if (gameOver) {
+        ctx.fillStyle = "red";
+        ctx.font = "bold 36px Arial";
+        ctx.fillText("Game Over!", canvas.width/2 - 100, canvas.height/2);
+        ctx.font = "24px Arial";
+        ctx.fillText("Tap to Restart", canvas.width/2 - 80, canvas.height/2 + 40);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+canvas.addEventListener("touchstart", () => {
+    if (!gameStarted) {
+        gameStarted = true;
+        resetGame();
+    } else if (gameOver) {
+        resetGame();
+    } else {
+        teddy.velocity = jump;
+    }
+});
+
+gameLoop();
+</script>
+</body>
+</html>
